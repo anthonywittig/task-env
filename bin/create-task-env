@@ -6,13 +6,15 @@
 #
 # Arguments:
 #   profile    Workspace profile (e.g. work, personal)
-#   mode       Task mode (e.g. debug, feature, review)
+#   mode       cursor | claude — which tool to open after cloning
 #   repo       Clone target: git URL, or GitHub owner/repo shorthand
 #   task-name  Short task label (spaces become hyphens in the path)
 #
 # Creates:
 #   ~/code/task-env/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
-# and clones <repo> into that directory.
+# clones <repo> into that directory, then opens it:
+#   cursor  → cursor .
+#   claude  → claude --dangerously-skip-permissions
 
 set -euo pipefail
 
@@ -21,13 +23,17 @@ usage() {
 Usage: create-task-env <profile> <mode> <repo> <task-name>
 
   profile    Workspace profile (e.g. work, personal)
-  mode       Task mode (e.g. debug, feature, review)
+  mode       cursor | claude
   repo       Git URL or GitHub owner/repo shorthand
   task-name  Short task label (spaces become hyphens)
 
+After cloning, opens the workspace:
+  cursor  → cursor .
+  claude  → claude --dangerously-skip-permissions
+
 Example:
-  create-task-env work feature owner/repo "fix login"
-  → ~/code/task-env/work/2026-07-31--fix-login--feature/
+  create-task-env work cursor owner/repo "fix login"
+  → ~/code/task-env/work/2026-07-31--fix-login--cursor/
 EOF
 }
 
@@ -62,6 +68,28 @@ resolve_repo_url() {
   esac
 }
 
+open_workspace() {
+  local mode=$1
+  local target_dir=$2
+
+  cd "$target_dir"
+  case "$mode" in
+    cursor)
+      command -v cursor >/dev/null 2>&1 || die "cursor CLI not found in PATH"
+      echo "Opening with Cursor…"
+      cursor .
+      ;;
+    claude)
+      command -v claude >/dev/null 2>&1 || die "claude CLI not found in PATH"
+      echo "Opening with Claude…"
+      claude --dangerously-skip-permissions
+      ;;
+    *)
+      die "mode must be 'cursor' or 'claude' (got: $mode)"
+      ;;
+  esac
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -86,6 +114,11 @@ task=$(slugify "$task_raw")
 [[ -n "$task" ]] || die "task-name is empty after sanitizing"
 [[ -n "$repo_raw" ]] || die "repo is required"
 
+case "$mode" in
+  cursor|claude) ;;
+  *) die "mode must be 'cursor' or 'claude' (got: $mode_raw)" ;;
+esac
+
 repo_url=$(resolve_repo_url "$repo_raw")
 today=$(date +%Y-%m-%d)
 dir_name="${today}--${task}--${mode}"
@@ -100,6 +133,8 @@ echo "Created $target_dir"
 
 echo "Cloning $repo_url → $target_dir"
 git clone "$repo_url" "$target_dir"
+
+open_workspace "$mode" "$target_dir"
 
 echo "Done."
 echo "$target_dir"
