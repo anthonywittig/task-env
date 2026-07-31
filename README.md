@@ -2,7 +2,7 @@
 
 Helpers for scaffolding dated task workspaces under `~/code/task-env/`.
 
-## `bin/create-task-env`
+## `bin/task-env.sh`
 
 Creates a directory, clones a repository into it, then opens the workspace in Cursor or Claude:
 
@@ -13,7 +13,7 @@ Creates a directory, clones a repository into it, then opens the workspace in Cu
 ### Usage
 
 ```bash
-bin/create-task-env <profile> <mode> <repo> <task-name>
+bin/task-env.sh <profile> <mode> <repo> <task-name>
 ```
 
 | Argument    | Description                                              |
@@ -33,7 +33,7 @@ After cloning:
 ### Example
 
 ```bash
-bin/create-task-env work cursor octocat/Hello-World "fix login"
+bin/task-env.sh work cursor octocat/Hello-World "fix login"
 # → ~/code/task-env/work/YYYY-MM-DD--fix-login--cursor/
 # → runs: cursor .
 ```

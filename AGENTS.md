@@ -6,7 +6,7 @@ This repository is a small collection of bash helpers (no Node/Python package ma
 
 ### Run / demo
 
-- Script entrypoint: `bin/create-task-env`
+- Script entrypoint: `bin/task-env.sh`
 - Requires `bash`, `git`, network access to the clone target, and either the `cursor` or `claude` CLI (depending on `mode`)
 - Creates workspaces under `~/code/task-env/{profile}/{yyyy-mm-dd}--{task}--{mode}/` and clones into that path
 - `mode` must be `cursor` or `claude`:
@@ -18,5 +18,5 @@ This repository is a small collection of bash helpers (no Node/Python package ma
 
 ### Lint / test
 
-- Syntax check: `bash -n bin/create-task-env`
+- Syntax check: `bash -n bin/task-env.sh`
 - Smoke test: run against a public repo (e.g. `octocat/Hello-World`) with mode `cursor` or `claude`, then remove the created directory under `~/code/task-env/` if desired

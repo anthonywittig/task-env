@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# create-task-env — scaffold a dated task workspace and clone a repo into it.
+# task-env.sh — scaffold a dated task workspace and clone a repo into it.
 #
 # Usage:
-#   create-task-env <profile> <mode> <repo> <task-name>
+#   task-env.sh <profile> <mode> <repo> <task-name>
 #
 # Arguments:
 #   profile    Workspace profile (e.g. work, personal)
@@ -20,7 +20,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: create-task-env <profile> <mode> <repo> <task-name>
+Usage: task-env.sh <profile> <mode> <repo> <task-name>
 
   profile    Workspace profile (e.g. work, personal)
   mode       cursor | claude
@@ -32,7 +32,7 @@ After cloning, opens the workspace:
   claude  → claude --dangerously-skip-permissions
 
 Example:
-  create-task-env work cursor owner/repo "fix login"
+  task-env.sh work cursor owner/repo "fix login"
   → ~/code/task-env/work/2026-07-31--fix-login--cursor/
 EOF
 }
