@@ -1,0 +1,140 @@
+#!/usr/bin/env bash
+# task-env.sh — scaffold a dated task workspace and clone a repo into it.
+#
+# Usage:
+#   task-env.sh <profile> <mode> <repo> <task-name>
+#
+# Arguments:
+#   profile    Workspace profile (e.g. work, personal)
+#   mode       cursor | claude — which tool to open after cloning
+#   repo       Clone target: git URL, or GitHub owner/repo shorthand
+#   task-name  Short task label (spaces become hyphens in the path)
+#
+# Creates:
+#   ~/code/task-env/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
+# clones <repo> into that directory, then opens it:
+#   cursor  → cursor .
+#   claude  → claude --dangerously-skip-permissions
+
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+Usage: task-env.sh <profile> <mode> <repo> <task-name>
+
+  profile    Workspace profile (e.g. work, personal)
+  mode       cursor | claude
+  repo       Git URL or GitHub owner/repo shorthand
+  task-name  Short task label (spaces become hyphens)
+
+After cloning, opens the workspace:
+  cursor  → cursor .
+  claude  → claude --dangerously-skip-permissions
+
+Example:
+  task-env.sh work cursor owner/repo "fix login"
+  → ~/code/task-env/work/2026-07-31--fix-login--cursor/
+EOF
+}
+
+die() {
+  echo "error: $*" >&2
+  exit 1
+}
+
+slugify() {
+  # Lowercase, spaces/underscores → hyphens, strip unsafe path chars, collapse hyphens.
+  local s
+  s=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr ' _' '-')
+  s=$(printf '%s' "$s" | tr -cd 'a-z0-9.-')
+  s=$(printf '%s' "$s" | sed -E 's/-+/-/g; s/^-+//; s/-+$//')
+  printf '%s' "$s"
+}
+
+resolve_repo_url() {
+  local repo=$1
+  case "$repo" in
+    git@*|https://*|http://*|ssh://*|file://*)
+      printf '%s' "$repo"
+      ;;
+    */*)
+      # GitHub shorthand: owner/repo[.git]
+      local path=${repo%.git}
+      printf 'https://github.com/%s.git' "$path"
+      ;;
+    *)
+      die "repo must be a git URL or GitHub owner/repo (got: $repo)"
+      ;;
+  esac
+}
+
+open_workspace() {
+  local mode=$1
+  local target_dir=$2
+
+  cd "$target_dir"
+  case "$mode" in
+    cursor)
+      command -v cursor >/dev/null 2>&1 || die "cursor CLI not found in PATH"
+      echo "Opening with Cursor…"
+      cursor .
+      ;;
+    claude)
+      command -v claude >/dev/null 2>&1 || die "claude CLI not found in PATH"
+      echo "Opening with Claude…"
+      claude --dangerously-skip-permissions
+      ;;
+    *)
+      die "mode must be 'cursor' or 'claude' (got: $mode)"
+      ;;
+  esac
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+if [[ $# -ne 4 ]]; then
+  usage >&2
+  exit 1
+fi
+
+profile_raw=$1
+mode_raw=$2
+repo_raw=$3
+task_raw=$4
+
+profile=$(slugify "$profile_raw")
+mode=$(slugify "$mode_raw")
+task=$(slugify "$task_raw")
+
+[[ -n "$profile" ]] || die "profile is empty after sanitizing"
+[[ -n "$mode" ]] || die "mode is empty after sanitizing"
+[[ -n "$task" ]] || die "task-name is empty after sanitizing"
+[[ -n "$repo_raw" ]] || die "repo is required"
+
+case "$mode" in
+  cursor|claude) ;;
+  *) die "mode must be 'cursor' or 'claude' (got: $mode_raw)" ;;
+esac
+
+repo_url=$(resolve_repo_url "$repo_raw")
+today=$(date +%Y-%m-%d)
+dir_name="${today}--${task}--${mode}"
+target_dir="${HOME}/code/task-env/${profile}/${dir_name}"
+
+if [[ -e "$target_dir" ]]; then
+  die "target already exists: $target_dir"
+fi
+
+mkdir -p "$target_dir"
+echo "Created $target_dir"
+
+echo "Cloning $repo_url → $target_dir"
+git clone "$repo_url" "$target_dir"
+
+open_workspace "$mode" "$target_dir"
+
+echo "Done."
+echo "$target_dir"
