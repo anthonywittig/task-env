@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# task-env.sh — scaffold a dated task workspace and clone a repo into it.
+# task-env.sh — scaffold a dated task workspace and clone one or more repos into it.
 #
 # Usage:
-#   task-env.sh <profile> <mode> <repo> <task-name>
+#   task-env.sh <profile> <mode> <task-name> <repo> [repo...]
 #
 # Arguments:
 #   profile    Workspace profile (e.g. work, personal)
 #   mode       cursor | claude — which tool to open after cloning
-#   repo       Clone target: git URL, or GitHub owner/repo shorthand
 #   task-name  Short task label (spaces become hyphens in the path)
+#   repo       Clone target: git URL, or GitHub owner/repo shorthand (SSH).
+#              Pass more than one, separated by spaces.
 #
 # Creates:
-#   ~/code/task-env/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
-# clones <repo> into that directory, then opens it:
+#   ~/code/tasks/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
+# One repo is cloned as that directory. Multiple repos are cloned as
+# subdirectories under it (named from each repo), then the workspace opens:
 #   cursor  → cursor .
 #   claude  → claude --dangerously-skip-permissions
 
@@ -20,20 +22,28 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: task-env.sh <profile> <mode> <repo> <task-name>
+Usage: task-env.sh <profile> <mode> <task-name> <repo> [repo...]
 
   profile    Workspace profile (e.g. work, personal)
   mode       cursor | claude
-  repo       Git URL or GitHub owner/repo shorthand
   task-name  Short task label (spaces become hyphens)
+  repo       Git URL, or GitHub owner/repo shorthand (cloned over SSH).
+             Repeat for more than one repo, separated by spaces.
+
+One repo is cloned as the workspace directory. Multiple repos are cloned
+as subdirectories under it.
 
 After cloning, opens the workspace:
   cursor  → cursor .
   claude  → claude --dangerously-skip-permissions
 
-Example:
-  task-env.sh work cursor owner/repo "fix login"
-  → ~/code/task-env/work/2026-07-31--fix-login--cursor/
+Examples:
+  task-env.sh work cursor "fix login" owner/repo
+  → ~/code/tasks/work/2026-07-31--fix-login--cursor/
+
+  task-env.sh work cursor "fix login" owner/api owner/web
+  → ~/code/tasks/work/2026-07-31--fix-login--cursor/api
+  → ~/code/tasks/work/2026-07-31--fix-login--cursor/web
 EOF
 }
 
@@ -60,12 +70,28 @@ resolve_repo_url() {
     */*)
       # GitHub shorthand: owner/repo[.git]
       local path=${repo%.git}
-      printf 'https://github.com/%s.git' "$path"
+      printf 'git@github.com:%s.git' "$path"
       ;;
     *)
       die "repo must be a git URL or GitHub owner/repo (got: $repo)"
       ;;
   esac
+}
+
+# Directory name git would use: last path segment, without a trailing .git.
+repo_dirname() {
+  local url=$1
+  local name
+  name=${url%/}
+  name=${name##*/}
+  name=${name%.git}
+  name=${name##*:}
+  case "$name" in
+    ''|.|..|*/*)
+      die "could not derive a directory name from $url"
+      ;;
+  esac
+  printf '%s' "$name"
 }
 
 open_workspace() {
@@ -95,15 +121,16 @@ if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   exit 0
 fi
 
-if [[ $# -ne 4 ]]; then
+if [[ $# -lt 4 ]]; then
   usage >&2
   exit 1
 fi
 
 profile_raw=$1
 mode_raw=$2
-repo_raw=$3
-task_raw=$4
+task_raw=$3
+shift 3
+repos=("$@")
 
 profile=$(slugify "$profile_raw")
 mode=$(slugify "$mode_raw")
@@ -112,17 +139,39 @@ task=$(slugify "$task_raw")
 [[ -n "$profile" ]] || die "profile is empty after sanitizing"
 [[ -n "$mode" ]] || die "mode is empty after sanitizing"
 [[ -n "$task" ]] || die "task-name is empty after sanitizing"
-[[ -n "$repo_raw" ]] || die "repo is required"
 
 case "$mode" in
   cursor|claude) ;;
   *) die "mode must be 'cursor' or 'claude' (got: $mode_raw)" ;;
 esac
 
-repo_url=$(resolve_repo_url "$repo_raw")
+for repo in "${repos[@]}"; do
+  [[ -n "$repo" ]] || die "repo is required"
+done
+
+repo_urls=()
+for repo in "${repos[@]}"; do
+  repo_urls+=("$(resolve_repo_url "$repo")")
+done
+
+repo_dirs=()
+if [[ ${#repo_urls[@]} -gt 1 ]]; then
+  seen=$'\n'
+  for url in "${repo_urls[@]}"; do
+    name=$(repo_dirname "$url")
+    case "$seen" in
+      *$'\n'"$name"$'\n'*)
+        die "multiple repos would clone into '$name'; use distinct repository names"
+        ;;
+    esac
+    seen+=$name$'\n'
+    repo_dirs+=("$name")
+  done
+fi
+
 today=$(date +%Y-%m-%d)
 dir_name="${today}--${task}--${mode}"
-target_dir="${HOME}/code/task-env/${profile}/${dir_name}"
+target_dir="${HOME}/code/tasks/${profile}/${dir_name}"
 
 if [[ -e "$target_dir" ]]; then
   die "target already exists: $target_dir"
@@ -131,8 +180,16 @@ fi
 mkdir -p "$target_dir"
 echo "Created $target_dir"
 
-echo "Cloning $repo_url → $target_dir"
-git clone "$repo_url" "$target_dir"
+if [[ ${#repo_urls[@]} -eq 1 ]]; then
+  echo "Cloning ${repo_urls[0]} → $target_dir"
+  git clone "${repo_urls[0]}" "$target_dir"
+else
+  for i in "${!repo_urls[@]}"; do
+    dest="${target_dir}/${repo_dirs[$i]}"
+    echo "Cloning ${repo_urls[$i]} → $dest"
+    git clone "${repo_urls[$i]}" "$dest"
+  done
+fi
 
 open_workspace "$mode" "$target_dir"
 
