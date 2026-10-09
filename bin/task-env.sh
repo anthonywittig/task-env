@@ -8,7 +8,8 @@
 #   profile    Workspace profile (e.g. work, personal)
 #   mode       cursor | claude — which tool to open after cloning
 #   task-name  Short task label (spaces become hyphens in the path)
-#   repo       Clone target: git URL, or GitHub owner/repo shorthand (SSH).
+#   repo       Clone target: git URL, or GitHub owner/repo shorthand.
+#              HTTP(S) URLs are rewritten to SSH.
 #              Pass more than one, separated by spaces.
 #
 # Creates:
@@ -27,7 +28,8 @@ Usage: task-env.sh <profile> <mode> <task-name> <repo> [repo...]
   profile    Workspace profile (e.g. work, personal)
   mode       cursor | claude
   task-name  Short task label (spaces become hyphens)
-  repo       Git URL, or GitHub owner/repo shorthand (cloned over SSH).
+  repo       Git URL, or GitHub owner/repo shorthand.
+             HTTP(S) URLs are cloned over SSH.
              Repeat for more than one repo, separated by spaces.
 
 One repo is cloned as the workspace directory. Multiple repos are cloned
@@ -61,11 +63,48 @@ slugify() {
   printf '%s' "$s"
 }
 
+# Rewrite an http(s) clone URL to SSH. A port stays in ssh:// form because
+# git@host:path uses the colon as the path separator.
+https_to_ssh() {
+  local url=$1
+  local rest host path
+  case "$url" in
+    https://*) rest=${url#https://} ;;
+    http://*) rest=${url#http://} ;;
+    *) die "not an http(s) URL: $url" ;;
+  esac
+  # Drop userinfo (https://user:token@host/path).
+  case "$rest" in
+    *@*) rest=${rest#*@} ;;
+  esac
+  case "$rest" in
+    */*) ;;
+    *) die "could not convert $url to an SSH URL" ;;
+  esac
+  host=${rest%%/*}
+  path=${rest#*/}
+  path=${path%%\?*}
+  path=${path%%#*}
+  path=${path%/}
+  [[ -n "$host" && -n "$path" ]] || die "could not convert $url to an SSH URL"
+  case "$host" in
+    *:*)
+      printf 'ssh://git@%s/%s' "$host" "$path"
+      ;;
+    *)
+      printf 'git@%s:%s' "$host" "$path"
+      ;;
+  esac
+}
+
 resolve_repo_url() {
   local repo=$1
   case "$repo" in
-    git@*|https://*|http://*|ssh://*|file://*)
+    git@*|ssh://*|file://*)
       printf '%s' "$repo"
+      ;;
+    https://*|http://*)
+      https_to_ssh "$repo"
       ;;
     */*)
       # GitHub shorthand: owner/repo[.git]

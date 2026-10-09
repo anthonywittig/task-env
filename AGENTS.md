@@ -12,7 +12,7 @@ This repository is a small collection of bash helpers (no Node/Python package ma
 - `mode` must be `cursor` or `claude`:
   - `cursor` → `cd` into the workspace and run `cursor .`
   - `claude` → `cd` into the workspace and run `claude --dangerously-skip-permissions`
-- `repo` accepts a full git URL or GitHub `owner/repo` shorthand (expanded to `git@github.com:owner/repo.git`)
+- `repo` accepts a full git URL or GitHub `owner/repo` shorthand (expanded to `git@github.com:owner/repo.git`). `https://` and `http://` clone URLs are rewritten to SSH (`git@host:path`)
 - Profile, mode, and task name are slugified (lowercase, spaces → hyphens, unsafe path chars stripped)
 - Cloud VMs typically do not have `cursor`/`claude` installed; smoke-test with PATH stubs that log argv if needed
 

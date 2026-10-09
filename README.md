@@ -21,7 +21,7 @@ bin/task-env.sh <profile> <mode> <task-name> <repo> [repo...]
 | `profile`   | Workspace profile (e.g. `work`, `personal`)              |
 | `mode`      | `cursor` or `claude`                                     |
 | `task-name` | Short label (spaces become hyphens in the path)          |
-| `repo`      | Git URL, or GitHub `owner/repo` shorthand (cloned as `git@github.com:owner/repo.git`). Repeat, separated by spaces. One repo is cloned as the workspace directory; several are cloned as subdirectories under it. |
+| `repo`      | Git URL, or GitHub `owner/repo` shorthand (cloned as `git@github.com:owner/repo.git`). `https://` and `http://` URLs are rewritten to SSH. Repeat, separated by spaces. One repo is cloned as the workspace directory; several are cloned as subdirectories under it. |
 
 After cloning:
 
