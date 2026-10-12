@@ -42,3 +42,19 @@ bin/task-env.sh work cursor "fix login" octocat/Hello-World cli/cli
 # → ~/code/tasks/work/YYYY-MM-DD--fix-login--cursor/cli
 # → runs: cursor .
 ```
+
+### List and reopen
+
+`-l` lists that profile's task directories, newest first. `-e` opens the numbered entry with the mode stored in its directory name (`cursor` or `claude`). Numbers match the current list and change when a newer task is added.
+
+```bash
+bin/task-env.sh work -l
+# Tasks for work:
+# 1  2026-10-12  ai-demo-v4  cursor
+# 2  2026-10-09  fix-login   claude
+
+bin/task-env.sh work -e 2
+# → opens task 2 with claude
+```
+
+`--list` and `--execute` are the long forms.

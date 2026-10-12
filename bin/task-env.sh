@@ -3,6 +3,8 @@
 #
 # Usage:
 #   task-env.sh <profile> <mode> <task-name> <repo> [repo...]
+#   task-env.sh <profile> -l
+#   task-env.sh <profile> -e <number>
 #
 # Arguments:
 #   profile    Workspace profile (e.g. work, personal)
@@ -11,6 +13,8 @@
 #   repo       Clone target: git URL, or GitHub owner/repo shorthand.
 #              HTTP(S) URLs are rewritten to SSH.
 #              Pass more than one, separated by spaces.
+#   -l         List task directories for the profile, newest first
+#   -e <n>     Open task number n from that list
 #
 # Creates:
 #   ~/code/tasks/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
@@ -23,7 +27,10 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: task-env.sh <profile> <mode> <task-name> <repo> [repo...]
+Usage:
+  task-env.sh <profile> <mode> <task-name> <repo> [repo...]
+  task-env.sh <profile> -l|--list
+  task-env.sh <profile> -e|--execute <number>
 
   profile    Workspace profile (e.g. work, personal)
   mode       cursor | claude
@@ -31,6 +38,8 @@ Usage: task-env.sh <profile> <mode> <task-name> <repo> [repo...]
   repo       Git URL, or GitHub owner/repo shorthand.
              HTTP(S) URLs are cloned over SSH.
              Repeat for more than one repo, separated by spaces.
+  -l         List tasks for the profile, newest first
+  -e <n>     Open task number n from that list
 
 One repo is cloned as the workspace directory. Multiple repos are cloned
 as subdirectories under it.
@@ -46,6 +55,9 @@ Examples:
   task-env.sh work cursor "fix login" owner/api owner/web
   → ~/code/tasks/work/2026-07-31--fix-login--cursor/api
   → ~/code/tasks/work/2026-07-31--fix-login--cursor/web
+
+  task-env.sh work -l
+  task-env.sh work -e 2
 EOF
 }
 
@@ -155,27 +167,127 @@ open_workspace() {
   esac
 }
 
+# Split {yyyy-mm-dd}--{task}--{mode} into TASK_DATE, TASK_NAME, and TASK_MODE.
+parse_task_dir_name() {
+  local base=$1
+  if [[ ! "$base" =~ ^([0-9]{4}-[0-9]{2}-[0-9]{2})--(.+)--(cursor|claude)$ ]]; then
+    die "unrecognized task directory: $base"
+  fi
+  TASK_DATE=${BASH_REMATCH[1]}
+  TASK_NAME=${BASH_REMATCH[2]}
+  TASK_MODE=${BASH_REMATCH[3]}
+}
+
+# Fill TASK_DIRS with workspace paths for a profile, newest directory name first.
+load_task_dirs() {
+  local profile=$1
+  local dir="${HOME}/code/tasks/${profile}"
+  local path name sorted
+  local names=()
+  TASK_DIRS=()
+  [[ -d "$dir" ]] || return 0
+
+  for path in "$dir"/*; do
+    [[ -d "$path" ]] || continue
+    names+=("$(basename "$path")")
+  done
+  [[ ${#names[@]} -gt 0 ]] || return 0
+
+  sorted=$(printf '%s\n' "${names[@]}" | sort -r)
+  while IFS= read -r name; do
+    [[ -n "$name" ]] || continue
+    parse_task_dir_name "$name"
+    TASK_DIRS+=("${dir}/${name}")
+  done <<< "$sorted"
+}
+
+list_tasks() {
+  local profile=$1
+  local path width=0 i=1 num_width
+  load_task_dirs "$profile"
+  if [[ ${#TASK_DIRS[@]} -eq 0 ]]; then
+    echo "No tasks for ${profile}."
+    return 0
+  fi
+
+  for path in "${TASK_DIRS[@]}"; do
+    parse_task_dir_name "$(basename "$path")"
+    [[ ${#TASK_NAME} -gt $width ]] && width=${#TASK_NAME}
+  done
+  num_width=${#TASK_DIRS[@]}
+  num_width=${#num_width}
+
+  echo "Tasks for ${profile}:"
+  for path in "${TASK_DIRS[@]}"; do
+    parse_task_dir_name "$(basename "$path")"
+    printf '%*d  %s  %-*s  %s\n' "$num_width" "$i" "$TASK_DATE" "$width" "$TASK_NAME" "$TASK_MODE"
+    i=$((i + 1))
+  done
+}
+
+execute_task() {
+  local profile=$1
+  local raw=$2
+  local number count path
+  [[ "$raw" =~ ^[0-9]+$ ]] || die "task number must be a positive integer (got: $raw)"
+  number=$((10#$raw))
+  [[ "$number" -ge 1 ]] || die "task number must be a positive integer (got: $raw)"
+
+  load_task_dirs "$profile"
+  count=${#TASK_DIRS[@]}
+  [[ "$count" -gt 0 ]] || die "no tasks for ${profile}"
+  [[ "$number" -le "$count" ]] || die "task number ${number} is out of range (1-${count})"
+
+  path=${TASK_DIRS[$((number - 1))]}
+  parse_task_dir_name "$(basename "$path")"
+  open_workspace "$TASK_MODE" "$path"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
 fi
 
-if [[ $# -lt 4 ]]; then
+if [[ $# -lt 1 ]]; then
   usage >&2
   exit 1
 fi
 
 profile_raw=$1
-mode_raw=$2
-task_raw=$3
-shift 3
+shift
+profile=$(slugify "$profile_raw")
+[[ -n "$profile" ]] || die "profile is empty after sanitizing"
+
+if [[ $# -ge 1 ]]; then
+  case "$1" in
+    -l|--list)
+      [[ $# -eq 1 ]] || die "-l does not take extra arguments"
+      list_tasks "$profile"
+      exit 0
+      ;;
+    -e|--execute)
+      [[ $# -eq 2 ]] || die "-e requires a task number"
+      execute_task "$profile" "$2"
+      echo "Done."
+      echo "${TASK_DIRS[$((10#$2 - 1))]}"
+      exit 0
+      ;;
+  esac
+fi
+
+if [[ $# -lt 3 ]]; then
+  usage >&2
+  exit 1
+fi
+
+mode_raw=$1
+task_raw=$2
+shift 2
 repos=("$@")
 
-profile=$(slugify "$profile_raw")
 mode=$(slugify "$mode_raw")
 task=$(slugify "$task_raw")
 
-[[ -n "$profile" ]] || die "profile is empty after sanitizing"
 [[ -n "$mode" ]] || die "mode is empty after sanitizing"
 [[ -n "$task" ]] || die "task-name is empty after sanitizing"
 
