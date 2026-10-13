@@ -1,25 +1,27 @@
 #!/usr/bin/env bash
-# task-env.sh — scaffold a dated task workspace and clone one or more repos into it.
+# task-env.sh — scaffold a dated task workspace and optionally clone repos into it.
 #
 # Usage:
-#   task-env.sh <profile> <mode> <task-name> <repo> [repo...]
+#   task-env.sh <profile> <mode> <task-name> [repo...]
 #   task-env.sh <profile> -l
 #   task-env.sh <profile> -e <number>
 #
 # Arguments:
 #   profile    Workspace profile (e.g. work, personal)
-#   mode       cursor | claude — which tool to open after cloning
+#   mode       cursor | claude — which tool to open after creating
 #   task-name  Short task label (spaces become hyphens in the path)
-#   repo       Clone target: git URL, or GitHub owner/repo shorthand.
+#   repo       Optional clone target: git URL, or GitHub owner/repo shorthand.
 #              HTTP(S) URLs are rewritten to SSH.
 #              Pass more than one, separated by spaces.
+#              Omit to create an empty workspace.
 #   -l         List task directories for the profile, newest first
 #   -e <n>     Open task number n from that list
 #
 # Creates:
 #   ~/code/tasks/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
-# One repo is cloned as that directory. Multiple repos are cloned as
-# subdirectories under it (named from each repo), then the workspace opens:
+# With no repo, that directory is empty. One repo is cloned as that directory.
+# Multiple repos are cloned as subdirectories under it (named from each repo).
+# Then the workspace opens:
 #   cursor  → cursor .
 #   claude  → claude --dangerously-skip-permissions
 
@@ -28,27 +30,31 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  task-env.sh <profile> <mode> <task-name> <repo> [repo...]
+  task-env.sh <profile> <mode> <task-name> [repo...]
   task-env.sh <profile> -l|--list
   task-env.sh <profile> -e|--execute <number>
 
   profile    Workspace profile (e.g. work, personal)
   mode       cursor | claude
   task-name  Short task label (spaces become hyphens)
-  repo       Git URL, or GitHub owner/repo shorthand.
+  repo       Optional. Git URL, or GitHub owner/repo shorthand.
              HTTP(S) URLs are cloned over SSH.
              Repeat for more than one repo, separated by spaces.
+             Omit to create an empty workspace.
   -l         List tasks for the profile, newest first
   -e <n>     Open task number n from that list
 
-One repo is cloned as the workspace directory. Multiple repos are cloned
-as subdirectories under it.
+With no repo, the workspace directory is empty. One repo is cloned as that
+directory. Multiple repos are cloned as subdirectories under it.
 
-After cloning, opens the workspace:
+Then opens the workspace:
   cursor  → cursor .
   claude  → claude --dangerously-skip-permissions
 
 Examples:
+  task-env.sh work cursor "scratch notes"
+  → ~/code/tasks/work/2026-07-31--scratch-notes--cursor/
+
   task-env.sh work cursor "fix login" owner/repo
   → ~/code/tasks/work/2026-07-31--fix-login--cursor/
 
@@ -275,7 +281,7 @@ if [[ $# -ge 1 ]]; then
   esac
 fi
 
-if [[ $# -lt 3 ]]; then
+if [[ $# -lt 2 ]]; then
   usage >&2
   exit 1
 fi
@@ -296,16 +302,15 @@ case "$mode" in
   *) die "mode must be 'cursor' or 'claude' (got: $mode_raw)" ;;
 esac
 
-for repo in "${repos[@]}"; do
-  [[ -n "$repo" ]] || die "repo is required"
-done
-
 repo_urls=()
-for repo in "${repos[@]}"; do
-  repo_urls+=("$(resolve_repo_url "$repo")")
-done
-
 repo_dirs=()
+if [[ ${#repos[@]} -gt 0 ]]; then
+  for repo in "${repos[@]}"; do
+    [[ -n "$repo" ]] || die "repo is required"
+    repo_urls+=("$(resolve_repo_url "$repo")")
+  done
+fi
+
 if [[ ${#repo_urls[@]} -gt 1 ]]; then
   seen=$'\n'
   for url in "${repo_urls[@]}"; do
@@ -334,7 +339,7 @@ echo "Created $target_dir"
 if [[ ${#repo_urls[@]} -eq 1 ]]; then
   echo "Cloning ${repo_urls[0]} → $target_dir"
   git clone "${repo_urls[0]}" "$target_dir"
-else
+elif [[ ${#repo_urls[@]} -gt 1 ]]; then
   for i in "${!repo_urls[@]}"; do
     dest="${target_dir}/${repo_dirs[$i]}"
     echo "Cloning ${repo_urls[$i]} → $dest"
