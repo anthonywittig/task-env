@@ -165,6 +165,12 @@ open_workspace() {
     claude)
       command -v claude >/dev/null 2>&1 || die "claude CLI not found in PATH"
       echo "Opening with Claude…"
+      # The task-env.zsh wrapper sets this so Claude starts in the calling
+      # shell, which a script cannot cd.
+      if [[ -n "${TASK_ENV_CD_FILE:-}" ]]; then
+        printf '%s\n' "$target_dir" > "$TASK_ENV_CD_FILE"
+        return 0
+      fi
       claude --dangerously-skip-permissions
       ;;
     *)
