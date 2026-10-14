@@ -30,6 +30,16 @@ After cloning:
 | `cursor` | `cursor .`                                      |
 | `claude` | `claude --dangerously-skip-permissions`         |
 
+### Shell setup for `claude`
+
+A script cannot change the directory of the shell that ran it. To have your shell move into the workspace before Claude starts, so splits, new tabs, and the prompt after Claude exits all land there, source the wrapper from `~/.zshrc`:
+
+```zsh
+source ~/Code/task-env/bin/task-env.zsh
+```
+
+It defines a `task-env` function that takes the same arguments as the script.
+
 ### Example
 
 ```bash
