@@ -8,7 +8,7 @@ This repository is a small collection of bash helpers (no Node/Python package ma
 
 - Script entrypoint: `bin/task-env.sh`
 - Requires `bash`, `git`, network access to the clone target, and either the `cursor` or `claude` CLI (depending on `mode`)
-- Creates workspaces under `~/code/tasks/{profile}/{yyyy-mm-dd}--{task}--{mode}/`. Usage is `task-env.sh <profile> <mode> <task-name> [repo...]`. With no repo, the directory is empty. One repo is cloned as that directory; additional space-separated repos are cloned as subdirectories under it
+- Creates workspaces under `~/code/tasks/{profile}/{yyyy-mm-dd}--{task}--{mode}/`. Usage is `task-env.sh <profile> <mode> <task-name> [repo...]`. With no repo, the directory is empty. Each repo is cloned as a subdirectory under it
 - `task-env.sh <profile> -l` lists that profile's task directories newest first (numbered). `task-env.sh <profile> -e <number>` opens that entry with the mode in its directory name (`--list` and `--execute` are equivalent)
 - `mode` must be `cursor` or `claude`:
   - `cursor` → `cd` into the workspace and run `cursor .`

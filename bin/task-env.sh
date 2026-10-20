@@ -19,8 +19,8 @@
 #
 # Creates:
 #   ~/code/tasks/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
-# With no repo, that directory is empty. One repo is cloned as that directory.
-# Multiple repos are cloned as subdirectories under it (named from each repo).
+# With no repo, that directory is empty. Each repo is cloned as a subdirectory
+# under it, named from the repo.
 # Then the workspace opens:
 #   cursor  → cursor .
 #   claude  → claude --dangerously-skip-permissions
@@ -44,8 +44,8 @@ Usage:
   -l         List tasks for the profile, newest first
   -e <n>     Open task number n from that list
 
-With no repo, the workspace directory is empty. One repo is cloned as that
-directory. Multiple repos are cloned as subdirectories under it.
+With no repo, the workspace directory is empty. Each repo is cloned as a
+subdirectory under it, named from the repo.
 
 Then opens the workspace:
   cursor  → cursor .
@@ -56,7 +56,7 @@ Examples:
   → ~/code/tasks/work/2026-07-31--scratch-notes--cursor/
 
   task-env.sh work cursor "fix login" owner/repo
-  → ~/code/tasks/work/2026-07-31--fix-login--cursor/
+  → ~/code/tasks/work/2026-07-31--fix-login--cursor/repo
 
   task-env.sh work cursor "fix login" owner/api owner/web
   → ~/code/tasks/work/2026-07-31--fix-login--cursor/api
@@ -317,7 +317,7 @@ if [[ ${#repos[@]} -gt 0 ]]; then
   done
 fi
 
-if [[ ${#repo_urls[@]} -gt 1 ]]; then
+if [[ ${#repo_urls[@]} -gt 0 ]]; then
   seen=$'\n'
   for url in "${repo_urls[@]}"; do
     name=$(repo_dirname "$url")
@@ -342,10 +342,7 @@ fi
 mkdir -p "$target_dir"
 echo "Created $target_dir"
 
-if [[ ${#repo_urls[@]} -eq 1 ]]; then
-  echo "Cloning ${repo_urls[0]} → $target_dir"
-  git clone "${repo_urls[0]}" "$target_dir"
-elif [[ ${#repo_urls[@]} -gt 1 ]]; then
+if [[ ${#repo_urls[@]} -gt 0 ]]; then
   for i in "${!repo_urls[@]}"; do
     dest="${target_dir}/${repo_dirs[$i]}"
     echo "Cloning ${repo_urls[$i]} → $dest"
