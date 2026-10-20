@@ -21,7 +21,7 @@ bin/task-env.sh <profile> <mode> <task-name> [repo...]
 | `profile`   | Workspace profile (e.g. `work`, `personal`)              |
 | `mode`      | `cursor` or `claude`                                     |
 | `task-name` | Short label (spaces become hyphens in the path)          |
-| `repo`      | Optional. Git URL, or GitHub `owner/repo` shorthand (cloned as `git@github.com:owner/repo.git`). `https://` and `http://` URLs are rewritten to SSH. Repeat, separated by spaces. Omit to create an empty workspace. One repo is cloned as the workspace directory; several are cloned as subdirectories under it. |
+| `repo`      | Optional. Git URL, or GitHub `owner/repo` shorthand (cloned as `git@github.com:owner/repo.git`). `https://` and `http://` URLs are rewritten to SSH. Repeat, separated by spaces. Omit to create an empty workspace. Each repo is cloned as a subdirectory under the workspace. |
 
 After cloning:
 
@@ -48,7 +48,7 @@ bin/task-env.sh work cursor "scratch notes"
 # → runs: cursor .
 
 bin/task-env.sh work cursor "fix login" octocat/Hello-World
-# → ~/code/tasks/work/YYYY-MM-DD--fix-login--cursor/
+# → ~/code/tasks/work/YYYY-MM-DD--fix-login--cursor/Hello-World
 # → runs: cursor .
 
 bin/task-env.sh work cursor "fix login" octocat/Hello-World cli/cli
