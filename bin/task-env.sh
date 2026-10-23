@@ -15,7 +15,8 @@
 #              Pass more than one, separated by spaces.
 #              Omit to create an empty workspace.
 #   -l         List task directories for the profile, newest first
-#   -e <n>     Open task number n from that list
+#   -e <n>     Open task number n from that list.
+#              Claude tasks resume the session named after the directory.
 #
 # Creates:
 #   ~/code/tasks/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
@@ -23,7 +24,7 @@
 # under it, named from the repo.
 # Then the workspace opens:
 #   cursor  → cursor .
-#   claude  → claude --dangerously-skip-permissions
+#   claude  → claude --dangerously-skip-permissions --name <directory>
 
 set -euo pipefail
 
@@ -42,14 +43,15 @@ Usage:
              Repeat for more than one repo, separated by spaces.
              Omit to create an empty workspace.
   -l         List tasks for the profile, newest first
-  -e <n>     Open task number n from that list
+  -e <n>     Open task number n from that list.
+             Claude tasks resume the session named after the directory.
 
 With no repo, the workspace directory is empty. Each repo is cloned as a
 subdirectory under it, named from the repo.
 
 Then opens the workspace:
   cursor  → cursor .
-  claude  → claude --dangerously-skip-permissions
+  claude  → claude --dangerously-skip-permissions --name <directory>
 
 Examples:
   task-env.sh work cursor "scratch notes"
@@ -154,6 +156,8 @@ repo_dirname() {
 open_workspace() {
   local mode=$1
   local target_dir=$2
+  local resume=${3:-}
+  local session_name
 
   cd "$target_dir"
   case "$mode" in
@@ -164,14 +168,23 @@ open_workspace() {
       ;;
     claude)
       command -v claude >/dev/null 2>&1 || die "claude CLI not found in PATH"
+      session_name=$(basename "$target_dir")
       echo "Opening with Claude…"
       # The task-env.zsh wrapper sets this so Claude starts in the calling
-      # shell, which a script cannot cd.
+      # shell, which a script cannot cd. A second line of "resume" tells the
+      # wrapper to reopen the named session.
       if [[ -n "${TASK_ENV_CD_FILE:-}" ]]; then
         printf '%s\n' "$target_dir" > "$TASK_ENV_CD_FILE"
+        if [[ "$resume" == resume ]]; then
+          printf 'resume\n' >> "$TASK_ENV_CD_FILE"
+        fi
         return 0
       fi
-      claude --dangerously-skip-permissions
+      if [[ "$resume" == resume ]]; then
+        claude --dangerously-skip-permissions --resume "$session_name"
+      else
+        claude --dangerously-skip-permissions --name "$session_name"
+      fi
       ;;
     *)
       die "mode must be 'cursor' or 'claude' (got: $mode)"
@@ -252,7 +265,11 @@ execute_task() {
 
   path=${TASK_DIRS[$((number - 1))]}
   parse_task_dir_name "$(basename "$path")"
-  open_workspace "$TASK_MODE" "$path"
+  if [[ "$TASK_MODE" == claude ]]; then
+    open_workspace "$TASK_MODE" "$path" resume
+  else
+    open_workspace "$TASK_MODE" "$path"
+  fi
 }
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then

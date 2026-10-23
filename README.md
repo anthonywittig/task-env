@@ -28,7 +28,7 @@ After cloning:
 | Mode     | Opens with                                      |
 |----------|-------------------------------------------------|
 | `cursor` | `cursor .`                                      |
-| `claude` | `claude --dangerously-skip-permissions`         |
+| `claude` | `claude --dangerously-skip-permissions --name <directory>` |
 
 ### Shell setup for `claude`
 
@@ -59,7 +59,7 @@ bin/task-env.sh work cursor "fix login" octocat/Hello-World cli/cli
 
 ### List and reopen
 
-`-l` lists that profile's task directories, newest first. `-e` opens the numbered entry with the mode stored in its directory name (`cursor` or `claude`). Numbers match the current list and change when a newer task is added.
+`-l` lists that profile's task directories, newest first. `-e` opens the numbered entry with the mode stored in its directory name (`cursor` or `claude`). A Claude entry resumes the session named after that directory. Numbers match the current list and change when a newer task is added.
 
 ```bash
 bin/task-env.sh work -l
@@ -68,7 +68,7 @@ bin/task-env.sh work -l
 # 2  2026-10-09  fix-login   claude
 
 bin/task-env.sh work -e 2
-# → opens task 2 with claude
+# → resumes the Claude session 2026-10-09--fix-login--claude
 ```
 
 `--list` and `--execute` are the long forms.

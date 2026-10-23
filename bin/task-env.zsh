@@ -7,13 +7,21 @@
 _task_env_script=${${(%):-%x}:A:h}/task-env.sh
 
 task-env() {
-  local cd_file dir ret
+  local cd_file dir action ret
+  local -a lines
   cd_file=$(mktemp -t task-env) || return
   TASK_ENV_CD_FILE=$cd_file "$_task_env_script" "$@"
   ret=$?
-  dir=$(<"$cd_file")
+  lines=("${(@f)$(<"$cd_file")}")
+  dir=${lines[1]:-}
+  action=${lines[2]:-}
   rm -f "$cd_file"
   (( ret == 0 )) || return $ret
   [[ -n $dir ]] || return 0
-  cd "$dir" && claude --dangerously-skip-permissions
+  cd "$dir" || return
+  if [[ $action == resume ]]; then
+    claude --dangerously-skip-permissions --resume "${dir:t}"
+  else
+    claude --dangerously-skip-permissions --name "${dir:t}"
+  fi
 }
