@@ -32,7 +32,7 @@ After cloning:
 
 ### Shell setup for `claude`
 
-A script cannot change the directory of the shell that ran it. To have your shell move into the workspace before Claude starts, so splits, new tabs, and the prompt after Claude exits all land there, source the wrapper from `~/.zshrc`:
+A script cannot change the directory of the shell that ran it. To leave your shell in the workspace for every mode, so splits, new tabs, and the next prompt land there, source the wrapper from `~/.zshrc`:
 
 ```zsh
 source ~/Code/task-env/bin/task-env.zsh

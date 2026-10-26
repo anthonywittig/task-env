@@ -1,8 +1,9 @@
-# task-env.zsh — source from ~/.zshrc so claude workspaces open in this shell.
+# task-env.zsh — source from ~/.zshrc so the shell ends up in the workspace.
 #
-# A script cannot change its caller's directory, so this function runs
-# task-env.sh, then cds here and launches Claude. Splits, new tabs, and the
-# prompt after Claude exits all start in the workspace.
+# A script cannot change its caller's directory. This function runs
+# task-env.sh, then cds here. Claude is launched in this shell so it stays
+# in the foreground. Splits, new tabs, and the next prompt all start in the
+# workspace.
 
 _task_env_script=${${(%):-%x}:A:h}/task-env.sh
 
@@ -21,7 +22,7 @@ task-env() {
   cd "$dir" || return
   if [[ $action == resume ]]; then
     claude --dangerously-skip-permissions --resume "${dir:t}"
-  else
+  elif [[ $action == claude ]]; then
     claude --dangerously-skip-permissions --name "${dir:t}"
   fi
 }
