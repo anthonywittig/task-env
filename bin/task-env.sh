@@ -153,6 +153,20 @@ repo_dirname() {
   printf '%s' "$name"
 }
 
+# Ask the calling zsh wrapper to cd here. An optional second line is an
+# action to run after the cd: "claude" starts a named session, "resume"
+# reopens one. Other modes leave the shell in the workspace and launch
+# their tool themselves.
+remember_directory() {
+  local dir=$1
+  local action=${2:-}
+  [[ -n "${TASK_ENV_CD_FILE:-}" ]] || return 0
+  printf '%s\n' "$dir" > "$TASK_ENV_CD_FILE"
+  if [[ -n "$action" ]]; then
+    printf '%s\n' "$action" >> "$TASK_ENV_CD_FILE"
+  fi
+}
+
 open_workspace() {
   local mode=$1
   local target_dir=$2
@@ -164,20 +178,21 @@ open_workspace() {
     cursor)
       command -v cursor >/dev/null 2>&1 || die "cursor CLI not found in PATH"
       echo "Opening with Cursor…"
+      remember_directory "$target_dir"
       cursor .
       ;;
     claude)
       command -v claude >/dev/null 2>&1 || die "claude CLI not found in PATH"
       session_name=$(basename "$target_dir")
       echo "Opening with Claude…"
-      # The task-env.zsh wrapper sets this so Claude starts in the calling
-      # shell, which a script cannot cd. A second line of "resume" tells the
-      # wrapper to reopen the named session.
+      # The wrapper launches Claude in the calling shell. A script cannot cd
+      # that shell, and Claude has to be the shell's foreground process.
+      if [[ "$resume" == resume ]]; then
+        remember_directory "$target_dir" resume
+      else
+        remember_directory "$target_dir" claude
+      fi
       if [[ -n "${TASK_ENV_CD_FILE:-}" ]]; then
-        printf '%s\n' "$target_dir" > "$TASK_ENV_CD_FILE"
-        if [[ "$resume" == resume ]]; then
-          printf 'resume\n' >> "$TASK_ENV_CD_FILE"
-        fi
         return 0
       fi
       if [[ "$resume" == resume ]]; then
