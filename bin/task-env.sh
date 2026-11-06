@@ -8,7 +8,7 @@
 #
 # Arguments:
 #   profile    Workspace profile (e.g. work, personal)
-#   mode       cursor | claude — which tool to open after creating
+#   mode       cursor | claude | codex — which tool to open after creating
 #   task-name  Short task label (spaces become hyphens in the path)
 #   repo       Optional clone target: git URL, or GitHub owner/repo shorthand.
 #              HTTP(S) URLs are rewritten to SSH.
@@ -23,8 +23,9 @@
 # With no repo, that directory is empty. Each repo is cloned as a subdirectory
 # under it, named from the repo.
 # Then the workspace opens:
-#   cursor  → cursor .
-#   claude  → claude --dangerously-skip-permissions --name <directory>
+#   cursor    → cursor .
+#   claude    → claude --dangerously-skip-permissions --name <directory>
+#   codex     → codex app <directory>
 
 set -euo pipefail
 
@@ -36,7 +37,7 @@ Usage:
   task-env.sh <profile> -e|--execute <number>
 
   profile    Workspace profile (e.g. work, personal)
-  mode       cursor | claude
+  mode       cursor | claude | codex
   task-name  Short task label (spaces become hyphens)
   repo       Optional. Git URL, or GitHub owner/repo shorthand.
              HTTP(S) URLs are cloned over SSH.
@@ -50,8 +51,9 @@ With no repo, the workspace directory is empty. Each repo is cloned as a
 subdirectory under it, named from the repo.
 
 Then opens the workspace:
-  cursor  → cursor .
-  claude  → claude --dangerously-skip-permissions --name <directory>
+  cursor    → cursor .
+  claude    → claude --dangerously-skip-permissions --name <directory>
+  codex     → codex app <directory>
 
 Examples:
   task-env.sh work cursor "scratch notes"
@@ -72,6 +74,22 @@ EOF
 die() {
   echo "error: $*" >&2
   exit 1
+}
+
+# Refuse to create a workspace when the destination filesystem has under 20 GiB free.
+# df -Pk reports available space in 1024-byte blocks.
+check_free_space() {
+  local dir=$1
+  local avail_kb min_kb
+  min_kb=$((20 * 1024 * 1024))
+  while [[ ! -d "$dir" ]]; do
+    dir=$(dirname "$dir")
+  done
+  avail_kb=$(df -Pk "$dir" | awk 'NR==2 { print $4 }')
+  [[ "$avail_kb" =~ ^[0-9]+$ ]] || die "could not determine free disk space for $dir"
+  if [[ "$avail_kb" -lt "$min_kb" ]]; then
+    die "less than 20 gigabytes free for $dir"
+  fi
 }
 
 slugify() {
@@ -153,6 +171,20 @@ repo_dirname() {
   printf '%s' "$name"
 }
 
+# Codex ships inside the ChatGPT app. Prefer a codex on PATH when present.
+codex_bin() {
+  local bundled="/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex"
+  if command -v codex >/dev/null 2>&1; then
+    command -v codex
+    return
+  fi
+  if [[ -x "$bundled" ]]; then
+    printf '%s' "$bundled"
+    return
+  fi
+  die "codex not found (expected codex on PATH or the ChatGPT app)"
+}
+
 # Ask the calling zsh wrapper to cd here. An optional second line is an
 # action to run after the cd: "claude" starts a named session, "resume"
 # reopens one. Other modes leave the shell in the workspace and launch
@@ -180,6 +212,13 @@ open_workspace() {
       echo "Opening with Cursor…"
       remember_directory "$target_dir"
       cursor .
+      ;;
+    codex)
+      local bin
+      bin=$(codex_bin)
+      echo "Opening with Codex…"
+      remember_directory "$target_dir"
+      "$bin" app "$target_dir"
       ;;
     claude)
       command -v claude >/dev/null 2>&1 || die "claude CLI not found in PATH"
@@ -210,7 +249,7 @@ open_workspace() {
 # Split {yyyy-mm-dd}--{task}--{mode} into TASK_DATE, TASK_NAME, and TASK_MODE.
 parse_task_dir_name() {
   local base=$1
-  if [[ ! "$base" =~ ^([0-9]{4}-[0-9]{2}-[0-9]{2})--(.+)--(cursor|claude)$ ]]; then
+  if [[ ! "$base" =~ ^([0-9]{4}-[0-9]{2}-[0-9]{2})--(.+)--(cursor|claude|codex)$ ]]; then
     die "unrecognized task directory: $base"
   fi
   TASK_DATE=${BASH_REMATCH[1]}
@@ -336,8 +375,8 @@ task=$(slugify "$task_raw")
 [[ -n "$task" ]] || die "task-name is empty after sanitizing"
 
 case "$mode" in
-  cursor|claude) ;;
-  *) die "mode must be 'cursor' or 'claude' (got: $mode_raw)" ;;
+  cursor|claude|codex) ;;
+  *) die "mode must be 'cursor', 'claude', or 'codex' (got: $mode_raw)" ;;
 esac
 
 repo_urls=()
@@ -370,6 +409,8 @@ target_dir="${HOME}/code/tasks/${profile}/${dir_name}"
 if [[ -e "$target_dir" ]]; then
   die "target already exists: $target_dir"
 fi
+
+check_free_space "$target_dir"
 
 mkdir -p "$target_dir"
 echo "Created $target_dir"
