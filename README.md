@@ -19,7 +19,7 @@ bin/task-env.sh <profile> <mode> <task-name> [repo...]
 | Argument    | Description                                              |
 |-------------|----------------------------------------------------------|
 | `profile`   | Workspace profile (e.g. `work`, `personal`)              |
-| `mode`      | `cursor` or `claude`                                     |
+| `mode`      | `cursor`, `claude`, or `codex`                           |
 | `task-name` | Short label (spaces become hyphens in the path)          |
 | `repo`      | Optional. Git URL, or GitHub `owner/repo` shorthand (cloned as `git@github.com:owner/repo.git`). `https://` and `http://` URLs are rewritten to SSH. Repeat, separated by spaces. Omit to create an empty workspace. Each repo is cloned as a subdirectory under the workspace. |
 
@@ -29,6 +29,7 @@ After cloning:
 |----------|-------------------------------------------------|
 | `cursor` | `cursor .`                                      |
 | `claude` | `claude --dangerously-skip-permissions --name <directory>` |
+| `codex`  | `codex app <directory>` (the ChatGPT app; `codex` on PATH, or the copy inside ChatGPT.app) |
 
 ### Shell setup for `claude`
 
