@@ -70,6 +70,10 @@ bin/task-env.sh work -l
 
 bin/task-env.sh work -e 2
 # → resumes the Claude session 2026-10-09--fix-login--claude
+
+# From inside that workspace, or a repo checked out under it:
+bin/task-env.sh .
+# → task-env work -e 2
 ```
 
 `--list` and `--execute` are the long forms.
