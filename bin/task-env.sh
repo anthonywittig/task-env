@@ -5,6 +5,7 @@
 #   task-env.sh <profile> <mode> <task-name> [repo...]
 #   task-env.sh <profile> -l
 #   task-env.sh <profile> -e <number>
+#   task-env.sh .
 #
 # Arguments:
 #   profile    Workspace profile (e.g. work, personal)
@@ -17,6 +18,8 @@
 #   -l         List task directories for the profile, newest first
 #   -e <n>     Open task number n from that list.
 #              Claude tasks resume the session named after the directory.
+#   .          From inside a task workspace (or a repo under it), reopen that
+#              task as `task-env <profile> -e <n>`.
 #
 # Creates:
 #   ~/code/tasks/{profile}/{yyyy-mm-dd}--{task-name}--{mode}/
@@ -35,6 +38,7 @@ Usage:
   task-env.sh <profile> <mode> <task-name> [repo...]
   task-env.sh <profile> -l|--list
   task-env.sh <profile> -e|--execute <number>
+  task-env.sh .
 
   profile    Workspace profile (e.g. work, personal)
   mode       cursor | claude | codex
@@ -46,6 +50,7 @@ Usage:
   -l         List tasks for the profile, newest first
   -e <n>     Open task number n from that list.
              Claude tasks resume the session named after the directory.
+  .          Reopen the task workspace that contains the current directory.
 
 With no repo, the workspace directory is empty. Each repo is cloned as a
 subdirectory under it, named from the repo.
@@ -68,6 +73,7 @@ Examples:
 
   task-env.sh work -l
   task-env.sh work -e 2
+  task-env.sh .
 EOF
 }
 
@@ -326,6 +332,52 @@ execute_task() {
   fi
 }
 
+# Device and inode, so paths that differ only by case or symlinks still match.
+dir_id() {
+  stat -f '%d:%i' "$1"
+}
+
+# Current directory, or a parent of it, when it is ~/code/tasks/<profile>/<task>.
+execute_cwd() {
+  local here tasks_root tasks_id candidate parent grand base profile
+  local number path want_id
+  here=$(cd -P . && pwd)
+  [[ -d "${HOME}/code/tasks" ]] || die "not inside a task workspace: $here"
+  tasks_root=$(cd -P "${HOME}/code/tasks" && pwd)
+  tasks_id=$(dir_id "$tasks_root")
+
+  candidate=$here
+  profile=
+  while [[ "$candidate" != "/" ]]; do
+    parent=$(dirname "$candidate")
+    grand=$(dirname "$parent")
+    base=$(basename "$candidate")
+    if [[ "$(dir_id "$grand")" == "$tasks_id" ]] \
+      && [[ "$base" =~ ^([0-9]{4}-[0-9]{2}-[0-9]{2})--(.+)--(cursor|claude|codex)$ ]]; then
+      profile=$(basename "$parent")
+      break
+    fi
+    candidate=$parent
+  done
+  [[ -n "$profile" ]] || die "not inside a task workspace: $here"
+
+  load_task_dirs "$profile"
+  want_id=$(dir_id "$candidate")
+  number=0
+  local i=1
+  for path in "${TASK_DIRS[@]}"; do
+    if [[ "$(dir_id "$path")" == "$want_id" ]]; then
+      number=$i
+      break
+    fi
+    i=$((i + 1))
+  done
+  [[ "$number" -ge 1 ]] || die "task directory is not listed for ${profile}: $candidate"
+
+  echo "task-env ${profile} -e ${number}"
+  execute_task "$profile" "$number"
+}
+
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   usage
   exit 0
@@ -334,6 +386,12 @@ fi
 if [[ $# -lt 1 ]]; then
   usage >&2
   exit 1
+fi
+
+if [[ $# -eq 1 && ( "$1" == "." || "$1" == "./" ) ]]; then
+  execute_cwd
+  echo "Done."
+  exit 0
 fi
 
 profile_raw=$1
