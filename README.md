@@ -60,20 +60,20 @@ bin/task-env.sh work cursor "fix login" octocat/Hello-World cli/cli
 
 ### List and reopen
 
-`-l` lists that profile's task directories, newest first. `-e` opens the numbered entry with the mode stored in its directory name (`cursor` or `claude`). A Claude entry resumes the session named after that directory. Numbers match the current list and change when a newer task is added.
+`-l` lists that profile's task directories, oldest first. `-e` opens the numbered entry with the mode stored in its directory name (`cursor` or `claude`). A Claude entry resumes the session named after that directory. Numbers match the current list. A newer task is appended, so earlier numbers stay put.
 
 ```bash
 bin/task-env.sh work -l
 # Tasks for work:
-# 1  2026-10-12  ai-demo-v4  cursor
-# 2  2026-10-09  fix-login   claude
+# 1  2026-10-09  fix-login   claude
+# 2  2026-10-12  ai-demo-v4  cursor
 
-bin/task-env.sh work -e 2
+bin/task-env.sh work -e 1
 # → resumes the Claude session 2026-10-09--fix-login--claude
 
 # From inside that workspace, or a repo checked out under it:
 bin/task-env.sh .
-# → task-env work -e 2
+# → task-env work -e 1
 ```
 
 `--list` and `--execute` are the long forms.
