@@ -15,7 +15,7 @@
 #              HTTP(S) URLs are rewritten to SSH.
 #              Pass more than one, separated by spaces.
 #              Omit to create an empty workspace.
-#   -l         List task directories for the profile, newest first
+#   -l         List task directories for the profile, oldest first
 #   -e <n>     Open task number n from that list.
 #              Claude tasks resume the session named after the directory.
 #   .          From inside a task workspace (or a repo under it), reopen that
@@ -47,7 +47,7 @@ Usage:
              HTTP(S) URLs are cloned over SSH.
              Repeat for more than one repo, separated by spaces.
              Omit to create an empty workspace.
-  -l         List tasks for the profile, newest first
+  -l         List tasks for the profile, oldest first
   -e <n>     Open task number n from that list.
              Claude tasks resume the session named after the directory.
   .          Reopen the task workspace that contains the current directory.
@@ -263,7 +263,7 @@ parse_task_dir_name() {
   TASK_MODE=${BASH_REMATCH[3]}
 }
 
-# Fill TASK_DIRS with workspace paths for a profile, newest directory name first.
+# Fill TASK_DIRS with workspace paths for a profile, oldest directory name first.
 load_task_dirs() {
   local profile=$1
   local dir="${HOME}/code/tasks/${profile}"
@@ -278,7 +278,7 @@ load_task_dirs() {
   done
   [[ ${#names[@]} -gt 0 ]] || return 0
 
-  sorted=$(printf '%s\n' "${names[@]}" | sort -r)
+  sorted=$(printf '%s\n' "${names[@]}" | sort)
   while IFS= read -r name; do
     [[ -n "$name" ]] || continue
     parse_task_dir_name "$name"
